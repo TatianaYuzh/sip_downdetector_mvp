@@ -1,0 +1,2 @@
+python3 scripts/sip_log_parser.py
+python3 scripts/access_log_to_json.py

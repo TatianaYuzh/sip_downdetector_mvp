@@ -1,0 +1,69 @@
+2025-12-24 09:00:00.001 [INFO] switch_core.c:2150 FreeSWITCH Version 1.10.12 starting
+2025-12-24 09:00:00.045 [NOTICE] switch_loadable_module.c:1483 Successfully loaded module mod_sofia
+2025-12-24 09:00:00.061 [NOTICE] switch_loadable_module.c:1483 Successfully loaded module mod_loopback
+2025-12-24 09:00:00.077 [NOTICE] switch_loadable_module.c:1483 Successfully loaded module mod_dptools
+2025-12-24 09:00:00.099 [INFO] sofia.c:8233 Starting Sofia profile 'internal'
+2025-12-24 09:00:00.121 [INFO] sofia.c:8233 Starting Sofia profile 'external'
+2025-12-24 09:00:00.145 [DEBUG] sofia.c:8891 Sofia internal bind to UDP 0.0.0.0:5060
+2025-12-24 09:00:00.176 [DEBUG] sofia.c:8891 Sofia external bind to UDP 203.0.113.10:5080
+
+2025-12-24 09:01:12.412 [NOTICE] sofia_reg.c:3129 Registered sip:1001@pbx.local from 192.168.1.10
+2025-12-24 09:01:15.903 [NOTICE] sofia_reg.c:3129 Registered sip:1002@pbx.local from 192.168.1.20
+2025-12-24 09:01:18.334 [NOTICE] sofia_reg.c:3129 Registered sip:1003@pbx.local from 192.168.1.30
+2025-12-24 09:01:20.001 [WARNING] sofia_reg.c:2981 Registration retry detected for sip:1003@pbx.local
+
+2025-12-24 09:02:45.556 [INFO] switch_channel.c:1098 New Channel sofia/internal/1001@192.168.1.10
+2025-12-24 09:02:45.557 [DEBUG] sofia.c:8765 SIP INVITE received from 1001
+2025-12-24 09:02:45.558 [DEBUG] sofia.c:8892 Via: SIP/2.0/UDP 192.168.1.10:5060
+2025-12-24 09:02:45.559 [DEBUG] sofia.c:8893 From: <sip:1001@pbx.local>
+2025-12-24 09:02:45.560 [DEBUG] sofia.c:8894 To: <sip:2000@pbx.local>
+
+2025-12-24 09:02:45.612 [INFO] switch_core_session.c:1721 Session created UUID=111a2c3d-aaaa-bbbb-cccc-123456789000
+2025-12-24 09:02:45.689 [INFO] switch_core_media.c:3120 Audio codec negotiated: PCMU/8000
+2025-12-24 09:02:45.703 [NOTICE] switch_channel.c:3456 Channel answered sofia/internal/2000@192.168.1.50
+
+2025-12-24 09:03:01.442 [DEBUG] switch_core_media.c:4012 RTP packet received seq=34561
+2025-12-24 09:03:01.462 [DEBUG] switch_core_media.c:4012 RTP packet received seq=34562
+2025-12-24 09:03:01.483 [DEBUG] switch_core_media.c:4012 RTP packet received seq=34563
+
+2025-12-24 09:03:15.991 [WARNING] switch_core_media.c:4289 RTP timeout detected on channel
+2025-12-24 09:03:16.102 [ERROR] switch_core_media.c:4321 Media stream stalled, attempting recovery
+2025-12-24 09:03:16.331 [NOTICE] switch_core_media.c:4355 Media recovered successfully
+
+2025-12-24 09:04:09.774 [INFO] switch_channel.c:3456 Hangup sofia/internal/1001@pbx.local [NORMAL_CLEARING]
+2025-12-24 09:04:09.781 [INFO] switch_core_session.c:1812 Session destroyed UUID=111a2c3d-aaaa-bbbb-cccc-123456789000
+2025-12-24 09:04:09.799 [INFO] switch_cdr.c:145 CDR written successfully
+
+2025-12-24 09:05:33.441 [ERROR] sofia.c:4567 SIP 403 Forbidden (Auth failed) from 203.0.113.45
+2025-12-24 09:05:33.442 [WARNING] sofia.c:4571 Possible SIP scan detected from 203.0.113.45
+2025-12-24 09:05:33.443 [NOTICE] sofia.c:4580 Adding IP to monitoring list
+
+2025-12-24 09:05:40.112 [CRIT] switch_core_memory.c:98 Memory pool usage exceeded threshold (92%)
+2025-12-24 09:05:40.113 [ALERT] switch_core.c:2201 System stability at risk, immediate action recommended
+
+2025-12-24 09:06:10.554 [INFO] switch_scheduler.c:189 Scheduled task cleanup_sessions executed
+2025-12-24 09:06:10.555 [DEBUG] switch_scheduler.c:195 Removed 3 stale sessions
+
+2025-12-24 09:06:59.999 [NOTICE] sofia_reg.c:3201 Unregistered sip:1002@pbx.local
+2025-12-24 09:07:00.001 [INFO] sofia.c:8301 Sofia profile 'external' is healthy
+2025-12-24 09:08:00.123 [NOTICE] sofia_reg.c:3300 Registered sip:2001@operatorA.example.net from 198.51.100.11
+2025-12-24 09:08:05.456 [ERROR] sofia.c:4590 SIP 503 Service Unavailable from 198.51.100.11
+2025-12-24 09:09:00.000 [NOTICE] sofia_reg.c:3310 Registered sip:3001@operatorB.example.org from 203.0.113.77
+2025-12-24 09:10:00.000 [NOTICE] sofia_reg.c:3300 Registered sip:4001@operatorC.example.net from 198.51.100.55
+2025-12-24 09:30:00.100 [WARNING] sofia.c:4590 SIP 408 Request Timeout from 198.51.100.55
+2025-12-24 09:50:00.200 [ERROR] sofia.c:4590 SIP 503 Service Unavailable from 198.51.100.55
+2025-12-24 10:10:00.300 [NOTICE] sofia_reg.c:3300 Registered sip:4002@operatorC.example.net from 198.51.100.55
+2025-12-24 10:30:00.400 [CRIT] switch_core.c:999 Critical service failure for operatorC from 198.51.100.55
+2025-12-24 10:50:00.500 [NOTICE] sofia_reg.c:3300 Registered sip:4003@operatorC.example.net from 198.51.100.55
+2025-12-24 11:10:00.600 [WARNING] sofia.c:4590 SIP 408 Request Timeout from 198.51.100.55
+2025-12-24 11:30:00.700 [ERROR] sofia.c:4590 SIP 503 Service Unavailable from 198.51.100.55
+2025-12-24 11:50:00.800 [NOTICE] sofia_reg.c:3300 Registered sip:4004@operatorC.example.net from 198.51.100.55
+2025-12-24 12:10:00.900 [WARNING] sofia.c:4590 Upstream delay detected for 198.51.100.55
+2025-12-24 12:30:01.000 [ERROR] sofia.c:4590 SIP 503 Service Unavailable from 198.51.100.55
+2025-12-24 12:50:01.100 [NOTICE] sofia_reg.c:3300 Registered sip:4005@operatorC.example.net from 198.51.100.55
+2025-12-24 13:10:01.200 [CRIT] switch_core.c:999 Critical service failure for operatorC from 198.51.100.55
+2025-12-24 13:30:01.300 [NOTICE] sofia_reg.c:3300 Registered sip:4006@operatorC.example.net from 198.51.100.55
+2025-12-24 13:50:01.400 [WARNING] sofia.c:4590 SIP 408 Request Timeout from 198.51.100.55
+2025-12-24 14:10:01.500 [ERROR] sofia.c:4590 SIP 503 Service Unavailable from 198.51.100.55
+2025-12-24 14:30:01.600 [NOTICE] sofia_reg.c:3300 Registered sip:4007@operatorC.example.net from 198.51.100.55
+2025-12-24 14:50:01.700 [NOTICE] sofia_reg.c:3300 Registered sip:4008@operatorC.example.net from 198.51.100.55

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Downdetector для SIP-провайдеров</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #0f172a;
+      color: #e5e7eb;
+      padding: 24px;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    header p {
+      font-size: 14px;
+      color: #9ca3af;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .service-card {
+      background: #020617;
+      border-radius: 12px;
+      padding: 16px 16px 18px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: visible;
+    }
+
+    .service-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .service-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: #111827;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .service-logo img {
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+
+    .service-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .service-title h2 {
+      font-size: 17px;
+    }
+
+    .service-meta {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+      color: #9ca3af;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+
+    .badge-ok {
+      background: rgba(22, 163, 74, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    .badge-degraded {
+      background: rgba(245, 158, 11, 0.1);
+      color: #facc15;
+      border: 1px solid rgba(234, 179, 8, 0.4);
+    }
+
+    .badge-down {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(248, 113, 113, 0.45);
+    }
+
+    .badge-uptime {
+      background: rgba(148, 163, 184, 0.08);
+      color: #e5e7eb;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .service-description {
+      font-size: 13px;
+      color: #d1d5db;
+    }
+
+    .chart-wrapper {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed #1f2937;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-bottom: 6px;
+    }
+
+    .error-message {
+      margin-top: 16px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(239, 68, 68, 0.1);
+      color: #fecaca;
+      font-size: 13px;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+    }
+
+.chart-wrapper {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #1f2937;
+
+  /* важное: фиксируем высоту и даём позиционирование для Chart.js */
+  height: 280px;
+  position: relative;
+  overflow: visible;
+}
+
+/* чтобы канвас занимал весь контейнер */
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  overflow: visible;
+}
+
+  </style>
+
+  <!-- Chart.js с CDN для отрисовки графиков -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Статус SIP-провайдеров!</h1>
+      <p>Агрегированные метрики доступности по логам SIP и nginx.</p>
+    </header>
+
+    <div id="error" class="error-message" style="display: none;"></div>
+
+    <section id="services" class="services-grid">
+      <!-- Карточки сервисов будут добавлены сюда JS-ом -->
+    </section>
+  </div>
+
+  <script>
+    async function loadServers() {
+      try {
+        const response = await fetch('./api/servers.json', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status);
+        }
+        const data = await response.json();
+        renderServices(data.services || []);
+      } catch (err) {
+        const box = document.getElementById('error');
+        box.style.display = 'block';
+        box.textContent = 'Не удалось загрузить данные /api/servers.json: ' + err.message;
+        console.error(err);
+      }
+    }
+
+    function renderServices(services) {
+      const container = document.getElementById('services');
+      container.innerHTML = '';
+
+      if (!services.length) {
+        const msg = document.createElement('div');
+        msg.className = 'error-message';
+        msg.textContent = 'Пока нет ни одного сервиса в /api/servers.json.';
+        container.appendChild(msg);
+        return;
+      }
+
+      services.forEach(service => {
+        const card = document.createElement('article');
+        card.className = 'service-card';
+
+        // --- шапка: логотип, название, бейджи ---
+        const header = document.createElement('div');
+        header.className = 'service-header';
+
+        const logo = document.createElement('div');
+        logo.className = 'service-logo';
+        if (service.logo_url) {
+          const img = document.createElement('img');
+          img.src = service.logo_url;
+          img.alt = service.name || service.id;
+          logo.appendChild(img);
+        } else {
+          logo.textContent = (service.name || service.id || '?')[0] || '?';
+        }
+
+        const titleBlock = document.createElement('div');
+        titleBlock.className = 'service-title';
+
+        const h2 = document.createElement('h2');
+        h2.textContent = service.name || service.id;
+
+        const meta = document.createElement('div');
+        meta.className = 'service-meta';
+
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'badge ' + statusBadgeClass(service.current_status);
+        statusBadge.textContent = statusLabel(service.current_status);
+        meta.appendChild(statusBadge);
+
+        if (typeof service.uptime_24h === 'number') {
+          const uptimeBadge = document.createElement('span');
+          uptimeBadge.className = 'badge badge-uptime';
+          const pct = (service.uptime_24h * 100).toFixed(2);
+          uptimeBadge.textContent = 'Uptime 24ч: ' + pct + '%';
+          meta.appendChild(uptimeBadge);
+        }
+
+        titleBlock.appendChild(h2);
+        titleBlock.appendChild(meta);
+
+        header.appendChild(logo);
+        header.appendChild(titleBlock);
+
+        // --- описание ---
+        if (service.description) {
+          const desc = document.createElement('p');
+          desc.className = 'service-description';
+          desc.textContent = service.description;
+          card.appendChild(header);
+          card.appendChild(desc);
+        } else {
+          card.appendChild(header);
+        }
+
+        // --- график ---
+        const chartWrapper = document.createElement('div');
+        chartWrapper.className = 'chart-wrapper';
+
+        const chartHeader = document.createElement('div');
+        chartHeader.className = 'chart-header';
+        chartHeader.innerHTML =
+          '<span>График доступности</span><span>чем выше линия, тем лучше</span>';
+
+        const canvas = document.createElement('canvas');
+        //canvas.height = 130;
+
+        chartWrapper.appendChild(chartHeader);
+        chartWrapper.appendChild(canvas);
+        card.appendChild(chartWrapper);
+
+        container.appendChild(card);
+
+        // Данные для графика
+        const timeline = Array.isArray(service.timeline) ? service.timeline : [];
+        renderAvailabilityChart(canvas, timeline);
+      });
+    }
+
+    function statusBadgeClass(status) {
+      switch (status) {
+        case 'ok':
+          return 'badge-ok';
+        case 'degraded':
+          return 'badge-degraded';
+        case 'down':
+          return 'badge-down';
+        default:
+          return 'badge-uptime';
+      }
+    }
+
+    function statusLabel(status) {
+      switch (status) {
+        case 'ok':
+          return 'Работает';
+        case 'degraded':
+          return 'Проблемы';
+        case 'down':
+          return 'Недоступен';
+        default:
+          return 'Неизвестно';
+      }
+    }
+
+    function renderAvailabilityChart(canvas, timeline) {
+      if (!timeline.length) {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '12px system-ui';
+        ctx.fillText('Нет данных для графика', 10, 20);
+        return;
+      }
+
+      const labels = timeline.map(p => {
+        const d = new Date(p.ts);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      });
+
+      const values = timeline.map(p => {
+        const v = typeof p.availability === 'number' ? p.availability : 0;
+        return Math.round(Math.max(0, Math.min(1, v)) * 100);
+      });
+
+      const singlePoint = timeline.length === 1;
+      new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Доступность, %',
+              data: values,
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: singlePoint ? 6 : 0,
+              pointHoverRadius: 8,
+              pointHitRadius: 8,
+              clip: false,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: {
+              top: 10,
+              bottom: 22
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => ctx.parsed.y + '%'
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                maxTicksLimit: 6
+              },
+              grid: {
+                display: false
+              }
+            },
+            y: {
+              min: 0,
+              max: 100,
+              ticks: {
+                stepSize: 25,
+                callback: v => v + '%'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    loadServers();
+  </script>
+</body>
+</html>
