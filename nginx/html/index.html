@@ -131,6 +131,30 @@
       border: 1px solid rgba(148, 163, 184, 0.3);
     }
 
+    .badge-risk-low {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.4);
+    }
+
+    .badge-risk-medium {
+      background: rgba(245, 158, 11, 0.15);
+      color: #facc15;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .badge-risk-high {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+
+    .badge-prediction {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
     .service-description {
       font-size: 13px;
       color: #d1d5db;
@@ -269,6 +293,23 @@
           meta.appendChild(uptimeBadge);
         }
 
+        // Prediction badge
+        if (typeof service.prediction === 'number') {
+          const predictionBadge = document.createElement('span');
+          predictionBadge.className = 'badge badge-prediction';
+          const pct = (service.prediction * 100).toFixed(0);
+          predictionBadge.textContent = 'Прогноз: ' + pct + '%';
+          meta.appendChild(predictionBadge);
+        }
+
+        // Risk badge
+        if (service.risk) {
+          const riskBadge = document.createElement('span');
+          riskBadge.className = 'badge ' + riskBadgeClass(service.risk);
+          riskBadge.textContent = 'Риск: ' + service.risk;
+          meta.appendChild(riskBadge);
+        }
+
         titleBlock.appendChild(h2);
         titleBlock.appendChild(meta);
 
@@ -304,9 +345,10 @@
 
         container.appendChild(card);
 
-        // Данные для графика
+        // Данные для графика (с прогнозом)
         const timeline = Array.isArray(service.timeline) ? service.timeline : [];
-        renderAvailabilityChart(canvas, timeline);
+        const prediction = service.prediction;
+        renderAvailabilityChart(canvas, timeline, prediction);
       });
     }
 
@@ -336,7 +378,20 @@
       }
     }
 
-    function renderAvailabilityChart(canvas, timeline) {
+    function riskBadgeClass(risk) {
+      switch (risk) {
+        case 'LOW':
+          return 'badge-risk-low';
+        case 'MEDIUM':
+          return 'badge-risk-medium';
+        case 'HIGH':
+          return 'badge-risk-high';
+        default:
+          return 'badge-uptime';
+      }
+    }
+
+    function renderAvailabilityChart(canvas, timeline, prediction) {
       if (!timeline.length) {
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#6b7280';
@@ -356,7 +411,27 @@
         return Math.round(Math.max(0, Math.min(1, v)) * 100);
       });
 
+      // Добавляем прогноз как последнюю точку (с небольшим сдвигом по времени)
+      if (typeof prediction === 'number' && timeline.length > 0) {
+        const lastPoint = timeline[timeline.length - 1];
+        const lastDate = new Date(lastPoint.ts);
+        // Добавляем +5 минут к последней точке для визуального разделения
+        const predictionDate = new Date(lastDate.getTime() + 5 * 60000);
+        labels.push('Прогноз');
+        values.push(Math.round(prediction * 100));
+      }
+
       const singlePoint = timeline.length === 1;
+      
+      // Создаем массив цветов точек (последняя точка прогноза — другой цвет)
+      const pointColors = timeline.map(() => '#60a5fa');
+      const pointRadii = timeline.map(() => (singlePoint ? 6 : 0));
+      
+      if (typeof prediction === 'number' && timeline.length > 0) {
+        pointColors.push('#f59e0b'); // Оранжевый цвет для прогноза
+        pointRadii.push(8); // Больший радиус для прогноза
+      }
+      
       new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -367,9 +442,13 @@
               data: values,
               tension: 0.3,
               borderWidth: 2,
-              pointRadius: singlePoint ? 6 : 0,
+              borderColor: '#60a5fa',
+              backgroundColor: '#60a5fa',
+              pointRadius: pointRadii,
               pointHoverRadius: 8,
               pointHitRadius: 8,
+              pointBackgroundColor: pointColors,
+              pointBorderColor: pointColors,
               clip: false,
               fill: false
             }

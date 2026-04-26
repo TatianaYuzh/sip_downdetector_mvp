@@ -1,10 +1,38 @@
 import re
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import parse_qs, unquote_plus
 
 ACCESS_LOG_FILE = './logs/access.log'
 OUTPUT_JSON_FILE = './nginx/html/api/servers.json'
+
+
+def compute_prediction(timeline, n=5):
+    """
+    Вычисляет прогноз доступности на основе скользящего среднего.
+    Берет последние N точек и считает среднее.
+    """
+    if not timeline:
+        return 1.0
+    
+    # Берем последние N точек
+    recent_points = timeline[-n:] if len(timeline) >= n else timeline
+    
+    # Считаем среднее availability
+    avg = sum(p['availability'] for p in recent_points) / len(recent_points)
+    return round(avg, 3)
+
+
+def compute_risk(prediction):
+    """
+    Оценивает риск на основе прогноза.
+    """
+    if prediction >= 0.8:
+        return 'LOW'
+    elif prediction >= 0.5:
+        return 'MEDIUM'
+    else:
+        return 'HIGH'
 
 
 def parse_access_log(max_points=30):
@@ -122,9 +150,15 @@ def parse_access_log(max_points=30):
         else:
             status = 'down'
 
+        # Вычисляем прогноз и риск
+        prediction = compute_prediction(out_timeline)
+        risk = compute_risk(prediction)
+        
         svc['timeline'] = out_timeline
         svc['uptime_24h'] = round(avg, 3)
         svc['current_status'] = status
+        svc['prediction'] = prediction
+        svc['risk'] = risk
         result_services.append(svc)
 
     return {'generated_at': datetime.utcnow().isoformat(), 'services': result_services}
