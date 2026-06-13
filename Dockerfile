@@ -5,20 +5,19 @@ RUN apk add --no-cache \
     python3 \
     py3-pip \
     dcron \
+    logrotate \
     ca-certificates
 
 # Создать директорию для скриптов
 RUN mkdir -p /app/scripts
 
-# Скопировать Python скрипт
+# Скопировать Python скрипт и конфиг logrotate
 COPY scripts/log_processor.py /app/scripts/
+COPY logrotate.conf /etc/logrotate.d/nginx
 
-# Скопировать entrypoint
-COPY docker-entrypoint.sh /
-RUN chmod +x /docker-entrypoint.sh
+# Создать crontab для запуска каждые 5 минут и logrotate ежедневно
+RUN (echo "*/5 * * * * cd /app && python3 scripts/log_processor.py >> /var/log/cron.log 2>&1"; \
+     echo "19 0 * * * /usr/sbin/logrotate /etc/logrotate.d/nginx >> /var/log/cron.log 2>&1") | crontab -
 
-# Создать crontab для запуска каждые 5 минут
-RUN echo "*/5 * * * * cd /app && python3 scripts/log_processor.py >> /var/log/cron.log 2>&1" | crontab -
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+# Запустить cron в фоне и затем nginx
+CMD crond -f -l 2 & nginx -g "daemon off;"

@@ -155,6 +155,18 @@
       border: 1px solid rgba(59, 130, 246, 0.4);
     }
 
+    .badge-ewma {
+      background: rgba(20, 184, 166, 0.15);
+      color: #5eead4;
+      border: 1px solid rgba(20, 184, 166, 0.4);
+    }
+
+    .badge-score {
+      background: rgba(168, 85, 247, 0.14);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.42);
+    }
+
     .service-description {
       font-size: 13px;
       color: #d1d5db;
@@ -298,8 +310,23 @@
           const predictionBadge = document.createElement('span');
           predictionBadge.className = 'badge badge-prediction';
           const pct = (service.prediction * 100).toFixed(0);
-          predictionBadge.textContent = 'Прогноз: ' + pct + '%';
+          predictionBadge.textContent = 'SMA: ' + pct + '%';
           meta.appendChild(predictionBadge);
+        }
+
+        if (typeof service.ewma_prediction === 'number') {
+          const ewmaBadge = document.createElement('span');
+          ewmaBadge.className = 'badge badge-ewma';
+          const pct = (service.ewma_prediction * 100).toFixed(0);
+          ewmaBadge.textContent = 'EWMA: ' + pct + '%';
+          meta.appendChild(ewmaBadge);
+        }
+
+        if (typeof service.risk_score === 'number') {
+          const scoreBadge = document.createElement('span');
+          scoreBadge.className = 'badge badge-score';
+          scoreBadge.textContent = 'Risk score: ' + service.risk_score.toFixed(2);
+          meta.appendChild(scoreBadge);
         }
 
         // Risk badge
@@ -421,15 +448,14 @@
         values.push(Math.round(prediction * 100));
       }
 
-      const singlePoint = timeline.length === 1;
-      
-      // Создаем массив цветов точек (последняя точка прогноза — другой цвет)
+      // Создаем массив цветов точек (все точки одинакового цвета)
       const pointColors = timeline.map(() => '#60a5fa');
-      const pointRadii = timeline.map(() => (singlePoint ? 6 : 0));
-      
+      const pointRadii = timeline.map(() => 3); // Маленький радиус для всех точек
+
+      // Добавляем точку прогноза с тем же цветом, что и обычные точки
       if (typeof prediction === 'number' && timeline.length > 0) {
-        pointColors.push('#f59e0b'); // Оранжевый цвет для прогноза
-        pointRadii.push(8); // Больший радиус для прогноза
+        pointColors.push('#60a5fa'); // Голубой цвет для прогноза
+        pointRadii.push(3); // Такой же радиус
       }
       
       new Chart(canvas.getContext('2d'), {
@@ -476,7 +502,27 @@
           scales: {
             x: {
               ticks: {
-                maxTicksLimit: 6
+                callback: function(value, index, values) {
+                  // Показывать только первую и последнюю реальную временную точку (не "Прогноз")
+                  const label = this.getLabelForValue(value);
+                  // Пропускаем "Прогноз"
+                  if (label === 'Прогноз') {
+                    return '';
+                  }
+                  // Показываем первую точку
+                  if (index === 0) {
+                    return label;
+                  }
+                  // Показываем последнюю реальную точку (если последняя - "Прогноз", то берем предпоследнюю)
+                  const lastLabel = this.getLabelForValue(values[values.length - 1]);
+                  if (lastLabel === 'Прогноз' && index === values.length - 2) {
+                    return label;
+                  }
+                  if (lastLabel !== 'Прогноз' && index === values.length - 1) {
+                    return label;
+                  }
+                  return '';
+                }
               },
               grid: {
                 display: false

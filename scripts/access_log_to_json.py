@@ -131,6 +131,16 @@ def parse_access_log(max_points=30):
         # skip services without any timeline points
         if not timeline:
             continue
+        # remove duplicates by timestamp (without milliseconds)
+        seen_timestamps = set()
+        unique_timeline = []
+        for point in timeline:
+            # truncate to minutes (remove milliseconds)
+            ts_min = point['ts'][:16]  # "2026-06-06T09:00"
+            if ts_min not in seen_timestamps:
+                seen_timestamps.add(ts_min)
+                unique_timeline.append(point)
+        timeline = unique_timeline
         # keep last N points
         if len(timeline) > max_points:
             timeline = timeline[-max_points:]

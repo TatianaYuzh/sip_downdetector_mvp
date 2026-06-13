@@ -19,12 +19,14 @@ import re
 import sys
 from datetime import datetime, timezone, timedelta
 from urllib.parse import parse_qs
+from metrics import compute_availability_stats
 
 # Пути (относительные от текущей директории)
-LOG_DIR = './logs'
+# В контейнере логи в /var/log/nginx, локально в ./logs
+LOG_DIR = '/var/log/nginx' if os.path.exists('/var/log/nginx') else './logs'
 ACCESS_LOG = os.path.join(LOG_DIR, 'access.log')
 STATE_FILE = '.log_state.json'
-OUTPUT_JSON = './nginx/html/api/servers.json'
+OUTPUT_JSON = './nginx/html/api/servers.json' if not os.path.exists('/var/log/nginx') else '/usr/share/nginx/html/api/servers.json'
 
 # Конфиги
 MAX_TIMELINE_POINTS = 30  # Максимум точек в timeline
@@ -232,13 +234,14 @@ def load_servers_json():
             with open(OUTPUT_JSON) as f:
                 data = json.load(f)
                 if DEBUG:
-                    services_count = len(data.get('services', {}))
+                    services = data.get('services', [])
+                    services_count = len(services) if isinstance(services, list) else len(services)
                     log_msg("DEBUG", f"Loaded servers.json with {services_count} services")
                 return data
         except Exception as e:
             log_msg("WARN", f"Failed to load servers.json: {e}")
     
-    return {'services': {}}
+    return {'services': []}
 
 
 def save_servers_json(data):
@@ -262,25 +265,29 @@ def compute_stats(timeline):
         return {
             'current_status': 'ok',
             'uptime_24h': 1.0,
+            'prediction': 1.0,
+            'ewma_prediction': 1.0,
+            'availability_ci_low': 1.0,
+            'availability_ci_high': 1.0,
+            'volatility': 0.0,
+            'incident_rate': 0.0,
+            'anomaly_score': 0.0,
+            'risk_score': 0.0,
+            'risk': 'LOW',
         }
-    
-    avg_availability = sum(p['availability'] for p in timeline) / len(timeline)
-    
-    # Определить статус на основе среднего
-    if avg_availability >= 0.9:
-        status = 'ok'
-    elif avg_availability >= 0.5:
-        status = 'degraded'
-    else:
-        status = 'down'
+
+    values = [p['availability'] for p in timeline]
+    stats = compute_availability_stats(values)
     
     if DEBUG:
-        log_msg("DEBUG", f"Computed stats: avg={avg_availability:.3f}, status={status}")
+        log_msg(
+            "DEBUG",
+            f"Computed stats: avg={stats['uptime_24h']:.3f}, "
+            f"sma={stats['prediction']:.3f}, ewma={stats['ewma_prediction']:.3f}, "
+            f"risk_score={stats['risk_score']:.3f}, risk={stats['risk']}"
+        )
     
-    return {
-        'current_status': status,
-        'uptime_24h': round(avg_availability, 3),
-    }
+    return stats
 
 
 def cleanup_old_logs(max_days=MAX_HISTORY_DAYS):
@@ -325,6 +332,13 @@ def update_servers_json(metrics):
     now = datetime.now(timezone.utc)
     cutoff_time = (now - timedelta(days=MAX_HISTORY_DAYS)).isoformat()
     
+    # Убедимся что services это список
+    if not isinstance(data['services'], list):
+        data['services'] = []
+    
+    # Создать словарь для быстрого поиска по id
+    services_dict = {svc['id']: svc for svc in data['services']}
+    
     updated_services = set()
     
     for metric in metrics:
@@ -332,8 +346,8 @@ def update_servers_json(metrics):
         updated_services.add(service_id)
         
         # Создать новый сервис если его ещё нет
-        if service_id not in data['services']:
-            data['services'][service_id] = {
+        if service_id not in services_dict:
+            services_dict[service_id] = {
                 'id': service_id,
                 'name': service_id,
                 'description': f'Service {service_id}',
@@ -343,25 +357,31 @@ def update_servers_json(metrics):
             }
             log_msg("INFO", f"Created new service: {service_id}")
         
-        # Добавить новую точку в timeline
-        data['services'][service_id]['timeline'].append({
-            'ts': metric['ts'],
-            'availability': metric['availability']
-        })
+        # Проверка на дубликаты - не добавлять точку если уже есть с таким timestamp (без миллисекунд)
+        existing_timestamps = {p['ts'][:16] for p in services_dict[service_id]['timeline']}
+        if metric['ts'][:16] not in existing_timestamps:
+            # Добавить новую точку в timeline
+            services_dict[service_id]['timeline'].append({
+                'ts': metric['ts'],
+                'availability': metric['availability']
+            })
         
         # Удалить точки старше MAX_HISTORY_DAYS
-        timeline = data['services'][service_id]['timeline']
+        timeline = services_dict[service_id]['timeline']
         timeline = [p for p in timeline if p['ts'] > cutoff_time]
-        data['services'][service_id]['timeline'] = timeline
+        services_dict[service_id]['timeline'] = timeline
         
         # Оставить только последние MAX_TIMELINE_POINTS
         if len(timeline) > MAX_TIMELINE_POINTS:
             timeline = timeline[-MAX_TIMELINE_POINTS:]
-            data['services'][service_id]['timeline'] = timeline
+            services_dict[service_id]['timeline'] = timeline
         
         # Пересчитать статистику
         stats = compute_stats(timeline)
-        data['services'][service_id].update(stats)
+        services_dict[service_id].update(stats)
+    
+    # Конвертировать обратно в список
+    data['services'] = list(services_dict.values())
     
     # Сохранить обновлённый JSON
     save_servers_json(data)
